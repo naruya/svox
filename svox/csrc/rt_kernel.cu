@@ -241,12 +241,13 @@ __device__ __inline__ void trace_ray(
 
     if (tmax < 0 || tmin > tmax) {
         // Ray doesn't hit box
-        for (int j = 0; j < out_data_dim; ++j) {
+        for (int j = 0; j < out_data_dim-1; ++j) {
             out[j] = opt.background_brightness;
         }
+        out[3] = 0.f;
         return;
     } else {
-        for (int j = 0; j < out_data_dim; ++j) {
+        for (int j = 0; j < out_data_dim-1; ++j) {
             out[j] = 0.f;
         }
         scalar_t pos[3];
@@ -280,7 +281,7 @@ __device__ __inline__ void trace_ray(
                 const scalar_t weight = light_intensity * (1.f - att);
 
                 if (opt.format != FORMAT_RGBA) {
-                    for (int t = 0; t < out_data_dim; ++ t) {
+                    for (int t = 0; t < out_data_dim-1; ++ t) {
                         int off = t * opt.basis_dim;
                         scalar_t tmp = 0.0;
                         for (int i = opt.min_comp; i <= opt.max_comp; ++i) {
@@ -289,7 +290,7 @@ __device__ __inline__ void trace_ray(
                         out[t] += weight * (_SIGMOID(tmp) * d_rgb_pad - opt.rgb_padding);
                     }
                 } else {
-                    for (int j = 0; j < out_data_dim; ++j) {
+                    for (int j = 0; j < out_data_dim-1; ++j) {
                         out[j] += weight * (_SIGMOID(tree_val[j]) * d_rgb_pad - opt.rgb_padding);
                     }
                 }
@@ -306,17 +307,19 @@ __device__ __inline__ void trace_ray(
                 if (light_intensity <= opt.stop_thresh) {
                     // Full opacity, stop
                     scalar_t scale = 1.0 / (1.0 - light_intensity);
-                    for (int j = 0; j < out_data_dim; ++j) {
+                    for (int j = 0; j < out_data_dim-1; ++j) {
                         out[j] *= scale;
                     }
+                    out[3] = 1.0 - light_intensity;
                     return;
                 }
             }
             t += delta_t;
         }
-        for (int j = 0; j < out_data_dim; ++j) {
+        for (int j = 0; j < out_data_dim-1; ++j) {
             out[j] += light_intensity * opt.background_brightness;
         }
+        out[3] = 1.0 - light_intensity;
     }
 }
 
@@ -1043,7 +1046,7 @@ torch::Tensor volume_render_image(TreeSpec& tree, CameraSpec& cam, RenderOptions
 
     auto_cuda_threads();
     const int blocks = CUDA_N_BLOCKS_NEEDED(Q, cuda_n_threads);
-    int out_data_dim = get_out_data_dim(opt.format, opt.basis_dim, tree.data.size(4));
+    int out_data_dim = get_out_data_dim(opt.format, opt.basis_dim, tree.data.size(4))+1;
     torch::Tensor result = torch::zeros({cam.height, cam.width, out_data_dim},
             tree.data.options());
 
