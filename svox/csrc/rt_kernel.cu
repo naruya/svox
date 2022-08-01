@@ -287,7 +287,9 @@ __device__ __inline__ void trace_ray(
                         for (int i = opt.min_comp; i <= opt.max_comp; ++i) {
                             tmp += basis_fn[i] * tree_val[off + i];
                         }
-                        out[t] += weight * (_SIGMOID(tmp) * d_rgb_pad - opt.rgb_padding);
+                        // https://github.com/sxyu/svox2/issues/22
+                        // out[t] += weight * (_SIGMOID(tmp) * d_rgb_pad - opt.rgb_padding);
+                        out[t] += weight * (fmaxf(tmp + 0.5f, 0.f) * d_rgb_pad - opt.rgb_padding);
                     }
                 } else {
                     for (int j = 0; j < out_data_dim-1; ++j) {
